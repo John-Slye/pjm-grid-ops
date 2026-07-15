@@ -1,0 +1,17 @@
+[project]
+name = "pjm-grid-ops"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "duckdb>=1.5.4",
+    "jupyter>=1.1.1",
+    "matplotlib>=3.11.0",
+    "pandas>=3.0.3",
+    "pyarrow>=25.0.0",
+    "pytest>=9.1.1",
+    "python-dotenv>=1.2.2",
+    "requests>=2.34.2",
+    "tenacity>=9.1.4",
+]
