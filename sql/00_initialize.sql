@@ -62,3 +62,49 @@ CREATE TABLE IF NOT EXISTS raw.eia_landed (
     loaded_at_utc TIMESTAMP NOT NULL,
     PRIMARY KEY (run_id, series_type, period)
 );
+
+
+-- One record per GHCNh weather load. raw.weather holds the most
+-- recently loaded run; this table is the audit log of loads.
+CREATE TABLE IF NOT EXISTS raw.weather_runs (
+    run_id VARCHAR PRIMARY KEY,
+    source_directory VARCHAR NOT NULL,
+    station_count INTEGER NOT NULL,
+    file_count INTEGER NOT NULL,
+    observation_rows BIGINT NOT NULL,
+    quarantine_rows BIGINT NOT NULL,
+    first_ts_utc TIMESTAMP,
+    last_ts_utc TIMESTAMP,
+    manifest_json JSON NOT NULL,
+    loaded_at_utc TIMESTAMP NOT NULL
+);
+
+
+-- Weather observations parsed from immutable GHCNh PSV files.
+--
+-- One row per station observation at its exact source minute. ts_utc
+-- is a naive TIMESTAMP whose documented meaning is UTC. temp_c is the
+-- source temperature in Celsius; it is NULL when the source value is
+-- missing or a sentinel. Implausible temperatures are diverted to
+-- raw.weather_quarantine instead of landing here.
+CREATE TABLE IF NOT EXISTS raw.weather (
+    station VARCHAR NOT NULL,
+    ts_utc TIMESTAMP NOT NULL,
+    temp_c DOUBLE,
+    PRIMARY KEY (station, ts_utc)
+);
+
+
+-- Weather observations that could not be trusted: an unparseable
+-- timestamp or temperature, or a temperature outside the plausible
+-- physical range (< -40 or > 50 C). Preserved rather than discarded.
+CREATE TABLE IF NOT EXISTS raw.weather_quarantine (
+    station VARCHAR,
+    ghcnh_id VARCHAR,
+    ts_utc TIMESTAMP,
+    temp_raw VARCHAR,
+    temp_c DOUBLE,
+    reason VARCHAR NOT NULL,
+    source_run_id VARCHAR NOT NULL,
+    loaded_at_utc TIMESTAMP NOT NULL
+);

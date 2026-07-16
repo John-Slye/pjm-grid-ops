@@ -40,6 +40,17 @@ classified AS (
                 THEN 'missing_value'
             WHEN parsed_value_mw IS NULL
                 THEN 'invalid_value'
+            -- Demand and forecast outside the plausible PJM band are
+            -- upstream EIA errors (nulls, unit glitches, and INT32
+            -- overflow sentinels near 2.147e9). Net generation and
+            -- total interchange have different scales and sign, so the
+            -- band applies only to D and DF.
+            WHEN series_type IN ('D', 'DF')
+                AND (
+                    parsed_value_mw < 20000
+                    OR parsed_value_mw > 175000
+                )
+                THEN 'implausible_magnitude'
             ELSE NULL
         END AS reason
     FROM parsed
@@ -105,7 +116,14 @@ SELECT
 FROM parsed
 WHERE parsed_ts_utc IS NOT NULL
   AND value IS NOT NULL
-  AND parsed_value_mw IS NOT NULL;
+  AND parsed_value_mw IS NOT NULL
+  AND NOT (
+      series_type IN ('D', 'DF')
+      AND (
+          parsed_value_mw < 20000
+          OR parsed_value_mw > 175000
+      )
+  );
 
 
 -- Current valid EIA values at hourly wide grain.
