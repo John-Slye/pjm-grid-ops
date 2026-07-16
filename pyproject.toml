@@ -15,3 +15,7 @@ dependencies = [
     "requests>=2.34.2",
     "tenacity>=9.1.4",
 ]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
