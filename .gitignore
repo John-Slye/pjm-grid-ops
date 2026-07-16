@@ -16,3 +16,6 @@ __pycache__/
 .RData
 .Ruserdata
 .Rproj.user/
+
+# Local DuckDB warehouse
+data/pjm_grid_ops.duckdb*

@@ -16,6 +16,17 @@ The EIA `period` field is treated as a UTC timestamp at the raw layer. No Easter
 
 An EIA series is considered successfully landed only when the number of downloaded rows exactly matches the API's reported `total`. An empty intermediate page, a changing server total, a duplicate period, or a mismatched respondent or series type causes the ingestion to fail loudly.
 
+## DuckDB Warehouse Architecture
+
+The local analytics warehouse is stored at `data/pjm_grid_ops.duckdb`. The database file is generated from source landings and is excluded from Git, while all schema definitions, transformations, loaders, and tests are version controlled.
+
+The warehouse uses three schemas. `raw` preserves source-level values, run manifests, page lineage, and the original JSON representation of each observation. `stg` converts timestamps and numeric values, quarantines records that cannot be parsed, selects the latest complete version of each EIA timestamp and series, and creates the hourly wide table. `mart` is reserved for rebuildable analytical tables such as daily peaks, weather features, and summer labels.
+
+`raw.eia_landed` is append-only and versioned by `run_id`. Later incremental pulls will preserve revised observations as new run versions instead of destroying the original version. The staging layer determines the current value by selecting the observation from the most recently completed run.
+
+`ts_utc` is stored as a naive DuckDB `TIMESTAMP` whose documented meaning is UTC. Every SQL script and database connection used by the pipeline explicitly sets the DuckDB session timezone to UTC. Eastern wall-clock timestamps will be derived later at the mart layer and will not replace the canonical UTC timestamp.
+
+The DuckDB database itself is not the immutable system of record. The timestamped JSON API landings remain the source evidence, while the database is a reproducible and query-optimized representation of those files.
 
 
 

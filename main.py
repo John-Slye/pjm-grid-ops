@@ -3,16 +3,21 @@
 from __future__ import annotations
 
 import argparse
+from pathlib import Path
 
 from ingest.eia_historical import download_historical_eia
 from ingest.eia_metadata import download_region_data_metadata
+from ingest.load_eia_duckdb import load_eia_run
 
 
 def build_parser() -> argparse.ArgumentParser:
     """Create the project command-line parser."""
 
     parser = argparse.ArgumentParser(
-        description="Run PJM grid operations data-pipeline tasks."
+        description=(
+            "Run PJM grid operations "
+            "data-pipeline tasks."
+        )
     )
 
     subparsers = parser.add_subparsers(
@@ -22,14 +27,34 @@ def build_parser() -> argparse.ArgumentParser:
 
     subparsers.add_parser(
         "metadata",
-        help="Download EIA region-data metadata.",
+        help=(
+            "Download EIA region-data metadata."
+        ),
     )
 
     subparsers.add_parser(
         "eia-history",
         help=(
-            "Download historical PJM D, DF, NG, and TI "
-            "series from the EIA API."
+            "Download historical PJM D, DF, "
+            "NG, and TI series."
+        ),
+    )
+
+    duckdb_parser = subparsers.add_parser(
+        "duckdb-load-eia",
+        help=(
+            "Load a complete historical EIA "
+            "run into DuckDB."
+        ),
+    )
+
+    duckdb_parser.add_argument(
+        "--run-dir",
+        type=Path,
+        default=None,
+        help=(
+            "Optional path to a specific run. "
+            "Defaults to the newest complete run."
         ),
     )
 
@@ -43,26 +68,78 @@ def main() -> None:
     args = parser.parse_args()
 
     if args.command == "metadata":
-        output_path = download_region_data_metadata()
+        output_path = (
+            download_region_data_metadata()
+        )
 
         print(
-            f"EIA metadata saved to: {output_path}"
+            f"EIA metadata saved to: "
+            f"{output_path}"
         )
 
     elif args.command == "eia-history":
-        run_directory = download_historical_eia()
-
-        print(
-            "\nHistorical EIA ingestion completed."
+        run_directory = (
+            download_historical_eia()
         )
 
         print(
-            f"Raw run saved to: {run_directory}"
+            "\nHistorical EIA ingestion "
+            "completed."
+        )
+
+        print(
+            f"Raw run saved to: "
+            f"{run_directory}"
+        )
+
+    elif args.command == "duckdb-load-eia":
+        result = load_eia_run(
+            args.run_dir
+        )
+
+        print(
+            "\nDuckDB EIA load completed."
+        )
+
+        print(
+            f"Database: "
+            f"{result['database_path']}"
+        )
+
+        print(
+            f"Run ID: "
+            f"{result['run_id']}"
+        )
+
+        print(
+            f"Already loaded: "
+            f"{result['already_loaded']}"
+        )
+
+        print(
+            f"Raw rows: "
+            f"{result['raw_rows']:,}"
+        )
+
+        print(
+            f"Valid staging rows: "
+            f"{result['staging_rows']:,}"
+        )
+
+        print(
+            f"Hourly rows: "
+            f"{result['hourly_rows']:,}"
+        )
+
+        print(
+            f"Quarantine rows: "
+            f"{result['quarantine_rows']:,}"
         )
 
     else:
         parser.error(
-            f"Unsupported command: {args.command}"
+            f"Unsupported command: "
+            f"{args.command}"
         )
 
 
