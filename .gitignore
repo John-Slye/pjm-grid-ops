@@ -3,3 +3,6 @@ data/
 *.duckdb
 
 .DS_Store
+
+# Generated EIA historical API landings
+data/raw/eia/region_data/runs/
