@@ -28,7 +28,24 @@ The warehouse uses three schemas. `raw` preserves source-level values, run manif
 
 The DuckDB database itself is not the immutable system of record. The timestamped JSON API landings remain the source evidence, while the database is a reproducible and query-optimized representation of those files.
 
+## Hourly Weather Source
 
+The original project specification selected NOAA ISD-Lite for hourly
+station weather. NOAA discontinued updates to ISD and ISD-Lite in
+August 2025 and replaced them with Global Historical Climatology
+Network Hourly (GHCNh). Because this project requires weather through
+July 1, 2026, GHCNh is used as the operational weather source.
+
+The six station locations and population weights remain unchanged:
+KPHL 0.21, KORD 0.32, KPIT 0.08, KDCA 0.21, KCMH 0.07, and KEWR 0.11.
+Annual station PSV files are preserved immutably under timestamped raw
+run directories.
+
+GHCNh observations retain their exact UTC minute. The staging layer
+will map observations to hourly UTC timestamps by selecting the valid
+observation closest to each whole hour. This reproduces the practical
+hourly intent of ISD-Lite without silently discarding the more precise
+source timestamp. Raw timestamps will never be altered.
 
 
 

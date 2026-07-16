@@ -7,6 +7,7 @@ from pathlib import Path
 
 from ingest.eia_historical import download_historical_eia
 from ingest.eia_metadata import download_region_data_metadata
+from ingest.ghcnh_historical import download_weather_history
 from ingest.load_eia_duckdb import load_eia_run
 
 
@@ -27,9 +28,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     subparsers.add_parser(
         "metadata",
-        help=(
-            "Download EIA region-data metadata."
-        ),
+        help="Download EIA region-data metadata.",
     )
 
     subparsers.add_parser(
@@ -53,8 +52,16 @@ def build_parser() -> argparse.ArgumentParser:
         type=Path,
         default=None,
         help=(
-            "Optional path to a specific run. "
+            "Optional path to a specific EIA run. "
             "Defaults to the newest complete run."
+        ),
+    )
+
+    subparsers.add_parser(
+        "weather-history",
+        help=(
+            "Download historical NOAA GHCNh "
+            "files for the six PJM stations."
         ),
     )
 
@@ -100,40 +107,48 @@ def main() -> None:
         print(
             "\nDuckDB EIA load completed."
         )
-
         print(
             f"Database: "
             f"{result['database_path']}"
         )
-
         print(
             f"Run ID: "
             f"{result['run_id']}"
         )
-
         print(
             f"Already loaded: "
             f"{result['already_loaded']}"
         )
-
         print(
             f"Raw rows: "
             f"{result['raw_rows']:,}"
         )
-
         print(
             f"Valid staging rows: "
             f"{result['staging_rows']:,}"
         )
-
         print(
             f"Hourly rows: "
             f"{result['hourly_rows']:,}"
         )
-
         print(
             f"Quarantine rows: "
             f"{result['quarantine_rows']:,}"
+        )
+
+    elif args.command == "weather-history":
+        run_directory = (
+            download_weather_history()
+        )
+
+        print(
+            "\nHistorical GHCNh weather "
+            "ingestion completed."
+        )
+
+        print(
+            f"Raw weather run saved to: "
+            f"{run_directory}"
         )
 
     else:
