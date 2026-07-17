@@ -5,8 +5,9 @@ con <- dbConnect(duckdb(), "data/pjm_grid_ops.duckdb", read_only = TRUE)
 df  <- dbGetQuery(con, "SELECT * FROM mart.hourly ORDER BY ts_utc") |> as_tibble()
 
 # The Naive forecast
-# lag(x, 168) shifts the column down 168 rows = 168 hours = exactly one week.
-df <- df |> mutate(pred_naive = lag(demand_mw, 168))
+naive_src <- df |> select(ts_utc, pred_naive = demand_mw) |>
+  mutate(ts_utc = ts_utc + hours(168))
+df <- df |> left_join(naive_src, by = "ts_utc")
 
 # Judge everything on 2023, one fixed, fair test year.
 test <- df |> filter(year(ts_local) == 2023, !is.na(pred_naive), !is.na(demand_mw))

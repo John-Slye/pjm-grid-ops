@@ -127,7 +127,26 @@ WHERE parsed_ts_utc IS NOT NULL
 
 
 -- Current valid EIA values at hourly wide grain.
+--
+-- EIA publishes the day-ahead demand forecast (DF) labeled one hour
+-- earlier than the demand hour it actually predicts: DF at period t best
+-- tracks D at t+1 (2.43% MAPE vs 3.60% at the same label). The raw layer
+-- preserves EIA's published period, so the alignment is corrected here by
+-- advancing each DF observation's effective timestamp by one hour. After
+-- this, forecast_mw at ts_utc = t is the forecast for demand_mw at t.
+-- Only DF is shifted; D, NG, and TI keep their published timestamps.
 CREATE OR REPLACE TABLE stg.eia_hourly AS
+WITH aligned AS (
+    SELECT
+        CASE
+            WHEN series_type = 'DF'
+                THEN ts_utc + INTERVAL 1 HOUR
+            ELSE ts_utc
+        END AS ts_utc,
+        series_type,
+        value_mw
+    FROM stg.eia_hourly_long
+)
 SELECT
     ts_utc,
 
@@ -161,6 +180,6 @@ SELECT
 
     count(*) AS series_count
 
-FROM stg.eia_hourly_long
+FROM aligned
 GROUP BY ts_utc
 ORDER BY ts_utc;

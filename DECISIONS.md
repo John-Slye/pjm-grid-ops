@@ -137,6 +137,44 @@ ends, that self-heals to true once the current date passes September 30
 model training, backtesting, and EVT (extreme-value) fitting until the
 season completes.
 
+## DF Timestamp Alignment
+
+EIA publishes the day-ahead demand forecast (`DF`) labeled one hour
+earlier than the demand hour it actually predicts. The forecast stored at
+period `t` best tracks demand at `t+1`. Evidence, measured as MAPE of `DF`
+against demand at three alignments:
+
+| Alignment | MAPE |
+| --- | --- |
+| `DF[t]` vs `D[t]` (as published) | 3.60% |
+| `DF[t]` vs `D[t+1]` | 2.42% |
+| `DF[t]` vs `D[t-1]` | 5.63% |
+
+Root cause: the offset is in the EIA source, not in our pipeline. The
+same three alignments computed on `raw.eia_landed` (3.61% / 2.43% /
+5.64%) match the staging figures, and the raw JSON for both `D` and `DF`
+carries only a `period` field with no secondary timestamp. The raw layer
+faithfully preserves EIA's published period, so it carried the
+misalignment through unchanged.
+
+Fix: applied in `sql/20_build_eia_staging.sql` when building the wide
+`stg.eia_hourly` table. Each `DF` observation's effective timestamp is
+advanced by one hour (`ts_utc + INTERVAL 1 HOUR`); `D`, `NG`, and `TI`
+keep their published timestamps, and neither `raw` nor
+`stg.eia_hourly_long` is modified. After the fix, `forecast_mw` at
+`ts_utc = t` is the forecast for `demand_mw` at `t`, and the stored
+alignment measures 2.42% MAPE while both one-hour shifts are worse
+(+1h → 3.46%, -1h → 3.60%). The shift adds two forecast-only hours at
+series edges (`stg.eia_hourly` and `mart.hourly` go from 65,621 to
+65,623 rows) and changes `mart.daily.df_peak_mw` on 12 dates where the
+daily peak forecast crossed a local-day boundary (max change 6,585 MW on
+2022-06-18).
+
+All `DF`-benchmark results computed before 2026-07-17 used misaligned
+`DF` and are superseded. Any forecast-skill numbers, error metrics, or
+models that consumed `forecast_mw` (or `df_peak_mw`) from before this fix
+must be recomputed.
+
 ## Modeling goalposts (2023 test year)
 
 Established 2026-07-17 from `r/02_baseline.R`, evaluated on all 2023 hours with
@@ -179,7 +217,33 @@ Technical notes:
   interaction's significance confirms the heat-load response differs by hour
   (the AC effect), which is the physical basis of the peak-day project.
 
+## Regime findings, corrected (r/04_regimes.R)
 
+1. PJM's weakest weekday pockets are summer pre-dawn hours (Jun-Aug,
+   ~03:00-06:00 local): MAPE 5.0-5.6% vs 2.4% overall, with persistent
+   under-forecast of ~4.3-4.7 GW. This pattern survived the alignment fix
+   and is judged real.
+
+2. Overall bias is -1,117 MW (PJM runs slightly under actual on average) --
+   essentially invariant to the alignment fix, as expected for a pure time
+   shift.
+
+3. Head-to-head (2023, monthly, corrected DF; mape_pjm with na.rm=TRUE --
+   post-shift forecast gaps leave a few demand-only hours, e.g. Nov 2023
+   DST). PJM wins all 12 months. Full table (gam_minus_pjm, pts):
+
+       Aug +0.23 | Jul +0.30 | Jan +0.86 | Feb +0.92 | Mar +1.09
+       Sep +1.50 | Jun +1.53 | Oct +1.65 | Dec +1.97 | Nov +2.08
+       Apr +2.68 | May +2.77
+
+   The gap compresses to near-parity in exactly the peak-season months
+   (Jul/Aug, +0.2-0.3pts) and widens most in the spring/fall transitions
+   (Apr/May, +2.7-2.8pts; all transition months +1.5 or worse). Interpretation:
+   summer demand is temperature-dominated and the GAM's temperature structure
+   captures most of what the incumbent knows; transition seasons reward
+   operational information the GAM lacks. Supersedes the pre-fix table, whose
+   apparent Jul/Aug GAM wins were artifacts of misaligned DF. Statistical
+   verdict on the Jul/Aug near-parity claim pending DM test (r/05_dm_test.R).
 
 
 
