@@ -419,6 +419,147 @@ daily peak within ~1-3 GW throughout the heat wave -- the lead feature is
 highly informative precisely on peak-relevant days, consistent with the DM
 finding that PJM's edge concentrates in large-demand hours.
 
+## Rule-based baseline (r/07_rule_baseline.R)
+
+The one-parameter strategy a facilities manager would run without statistics:
+alarm when df_peak_mw >= bar - buffer, where bar = max(s2d_top5_cutoff, FLOOR)
+and FLOOR (130,568 MW, the 75th percentile of forecast peaks) stands in for
+the early-season period before five days establish a cutoff. Caveat, accepted
+for a baseline only: FLOOR is computed from pooled summers, a mild look-ahead;
+the classifier will be held to strict leave-one-summer-out with no pooled
+constants.
+
+v1 (weekdays only) buffer sweep, complete summers 2019-2025 (35 true peaks):
+
+| buffer (MW) | caught /35 | median alarms/summer |
+| --- | --- | --- |
+| 0     | 33 | 15 |
+| 1000  | 34 | 16 |
+| 2000  | 34 | 17 |
+| 3000  | 34 | 20 |
+| 5000  | 34 | 23 |
+| 8000  | 34 | 28 |
+
+The curve is flat above buffer 1000: alarms nearly double to 8000 MW with no
+additional catches -- the remaining miss was unreachable by threshold.
+
+Miss diagnosis (the session's key finding):
+- 2019-07-20: a SATURDAY peak, forecast 146,692 vs bar 139,607 -- PJM's
+  forecast called it loudly, 7 GW clear. Missed purely by the rule's
+  hand-coded !is_weekend exclusion, not by the data. The one summer in seven
+  whose defining heat wave crested on a weekend.
+- 2022-08-08: Monday, missed by 275 MW (142,505 vs bar 142,780) -- a razor
+  threshold case, recovered by buffer 1000 as designed.
+
+v2 repair: weekends made eligible; the bar itself filters them (weekend
+demand runs 6-7 GW below weekday, per GAM dow effects). Results:
+- v2, buffer 0:    34/35, median 15 alarms (2019 recovered; 2022 pending)
+- v2, buffer 1000: 35/35 -- perfect seven-summer catch -- median 17 alarms
+- Measured cost of weekend eligibility: 9 alarms across all seven summers
+  (~1.3/summer).
+
+CHOSEN OPERATING POINT: v2, buffer = 1000 MW. 35/35 caught, median 17
+alarms/summer, worst summer 21 (2020). Note: median 17 exceeds the ~15
+working alarm budget by two; accepted pending the Module 4 EV model, where
+one missed peak (~1/5 of gross savings) dwarfs two events' curtailment cost
+at any plausible capacity rate.
+
+Consequence for the classifier: catching more than 35/35 is impossible, so
+the classifier's value proposition is alarm efficiency -- matching the
+perfect catch on meaningfully fewer alarms (each saved alarm is worth
+c_event in the EV model) -- and/or better probability calibration for
+threshold tuning. If it cannot beat 35/35-at-17, the honest conclusion is
+that a transparent one-parameter rule is the recommended system, and the
+classifier's role is confirmatory.
+
+
+## Peak-day classifier (r/08_classifier.R)
+
+Ridge logistic regression (glmnet, alpha=0, lambda.1se) on the five as-of
+features, evaluated leave-one-summer-out with fold-local early-season floors
+computed from training summers only (no pooled constants -- the stricter
+standard the rule baseline was exempted from). Three days excluded for
+missing weather (2025-08-30 to 09-01, one consecutive Labor Day-weekend feed
+gap): none top-5, forecast peaks 91-97 GW, 45+ GW below any bar --
+exclusion safe, imputation unnecessary; n = 844 days, 35 positives intact.
+
+Model quality: strong separation -- mean p_hat 0.348 on true peak days vs
+0.0285 otherwise (12x), max 0.839. Probabilities are low in absolute terms
+(35 positives / 844 days) but well-ranked, which is what threshold sweeps
+consume.
+
+Pooled efficiency frontier (tau chosen with all summers visible):
+best perfect-catch point tau = 0.10 -> 35/35, median 15 alarms, worst 20 --
+beats the rule on both matched comparisons. Flagged as flattering: pooled
+tau selection is test-set tuning.
+
+Nested evaluation (tau chosen blind from the other six summers, applied to
+the held-out seventh -- the pre-registered honest standard):
+34/35 caught, median 15 alarms/summer, worst 20. Six of seven folds chose
+tau = 0.10 (stable); the 2022 fold chose 0.12, and that deviation produced
+the single miss (2022-08-08, p_hat = 0.111). Threshold stability is good but
+its one wobble cost a peak -- the nested check did exactly its job.
+
+VERDICT (pre-registered middle branch): neither system dominates. The
+classifier trades one missed peak per seven summers for ~2 fewer alarms per
+summer vs the rule (35/35 at median 17). At plausible economics the
+trade-off is close and c_event-dependent; Module 4 prices it. RECOMMENDATION:
+the v2 rule as the operating system (perfect catch, one parameter,
+explainable in a sentence), with the classifier as a validated confidence
+layer whose probabilities inform dispatch conviction. This conclusion --
+a transparent rule beating a tuned model on the metric that matters -- is
+reported as a finding, not a failure.
+
+## Capacity price inputs (verified 2026-07-17, pjm.com / Monitoring Analytics)
+
+PJM Base Residual Auction clearing prices, $/MW-day UCAP, RTO footprint:
+2025/26: $269.92 (BGE $466.35, Dominion $444.26); 2026/27 (current delivery
+year): $329.17, at the FERC cap in all zones (uncapped counterfactual per
+PJM simulation: $388.57); 2027/28: $333.44, at cap; 2028/29 (announced
+2026-07-14): $325, at cap -- third consecutive auction pinned at the collar.
+EV model inputs: low 269.92 / mid 329.17 / high 333.44. Caveats: UCAP
+clearing prices; customer bill translation involves zone and tariff scaling
+factors -- the per-MW-of-PLC framing at the RTO price is a stated
+simplification, and BGE/Dominion-zone facilities face materially higher
+values.
+
+## Stress tests (r/09_stress_tests.R)
+
+Study 1 -- weather-noise corruption (cashing the standing actual-vs-forecast
+temperature caveat). Full LOSO rerun at tau = 0.10 with temp_fc_max
+corrupted by N(0, sd) noise, 20 seeds per level:
+
+| sd (C) | mean caught /35 | worst seed | mean median alarms |
+| --- | --- | --- | --- |
+| 0 (determinism check) | 35.0 | 35 | 15.0 |
+| 1.0 | 34.1 | 32 | 15.3 |
+| 1.5 (realistic day-ahead error) | 33.6 | 31 | 15.2 |
+| 2.0 | 33.0 | 30 | 15.4 |
+
+Verdict: robust in the main with a measured bound -- realistic forecast
+error costs ~1-1.5 peaks per seven summers on average; alarm counts are
+unaffected (noise blurs marginal days, no false-alarm cascade), consistent
+with df_peak_mw (genuinely as-of, no proxy) carrying most of the signal.
+Caveat status: retired as an unknown, retained as a quantified limitation.
+
+Study 2 -- bootstrap-over-summers EV band. Economics per MW curtailable at
+the pooled tau = 0.10 point (35/35): savings = rate x 365 x (caught/5) x
+0.85 capture efficiency, minus alarms x $2,000/event (assumption, swept in
+the Excel model). Per-summer EV at mid rate spans $62.1k (2020, 20 alarms)
+to $88.1k (2023, 7 alarms). Bootstrap (2,000 reps over summers), p10/p50/p90
+per MW-year:
+
+- low rate ($269.92):  $50.6k / $54.6k / $58.9k
+- mid rate ($329.17):  $69.0k / $73.0k / $77.3k
+- high rate ($333.44): $70.3k / $74.3k / $78.6k
+
+Integrity adjustment: the band sits on the pooled operating point; under the
+nested-honest catch rate (34/35), the seven-summer mean shifts down ~$2.5k.
+Headline figure for deliverables: ~$70k per MW-year at current capacity
+prices, $50-79k across rate and summer scenarios. Even the low-band floor is
+~25x the per-event cost assumption, so the recommendation is insensitive to
+c_event within any plausible range.
+
 # Part III — Post-Mortems
 
 Kept deliberately: how errors were caught is part of the project's evidence.
