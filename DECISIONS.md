@@ -386,6 +386,39 @@ are lower bounds (Part I), biasing the fitted tail slightly downward if at
 all. Exported to extracts/gpd_params.csv: u, sigma, xi,
 exceed_per_summer = 5.14.
 
+## Classifier features (ingest/build_features.py)
+
+One row per summer day (Jun-Sep), 884 rows: 7 complete summers x 122 days
+plus 30 provisional days of in-progress 2026 (excluded from all training via
+is_complete_summer). Every feature is knowable at 6 AM of its day:
+
+- df_peak_mw: PJM's day-ahead forecast peak -- genuinely as-of, no proxy.
+- temp_fc_max: actual max temp standing in for a forecast (standing caveat;
+  to be noise-stress-tested in the backtest phase).
+- is_weekend: ISO convention, dow_local in (6, 7).
+- days_left: days remaining in the season.
+- s2d_top5_cutoff: the 5th-highest daily peak of this summer THROUGH
+  YESTERDAY; None until five days have been observed.
+- df_vs_cutoff, recent_max_7d: derived from the above.
+
+Implementation is an explicit Python loop rather than SQL windows: ranked
+quantities over ever-growing as-of windows are awkward in SQL, and the loop's
+append-only-after-row-built ordering makes the leakage protection visible and
+hand-verifiable.
+
+Leakage spot-check, performed on the Jul 15 - Aug 5 2022 heat-wave window
+(22 rows, verified by hand):
+- Jul 20's 148.5 GW peak raises the cutoff only on Jul 21 (135.8 GW); no
+  same-day cutoff response anywhere in the window.
+- Jul 19's 142.6 GW peak enters as the cutoff only on Aug 4, after enough
+  larger days accumulated above it -- correct ranked as-of behavior.
+- Cutoff is monotone non-decreasing across the window (133.5 -> 142.8 GW).
+
+Incidental observation from the same table: df_peak_mw tracks the realized
+daily peak within ~1-3 GW throughout the heat wave -- the lead feature is
+highly informative precisely on peak-relevant days, consistent with the DM
+finding that PJM's edge concentrates in large-demand hours.
+
 # Part III — Post-Mortems
 
 Kept deliberately: how errors were caught is part of the project's evidence.
@@ -423,3 +456,4 @@ labels, the EVT fit, and the backtest. Resolved by the
 `[20000, 175000]` MW validity rule (Part I); summer 2020's corrected top-5
 read as real mid-July heat-wave days at 142–145 GW. Residual effect: daily
 peaks on quarantined days are lower bounds (Part I, Mart Layer Conventions).
+
