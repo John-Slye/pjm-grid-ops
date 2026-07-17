@@ -355,6 +355,37 @@ h = 24 HAC variance; squared loss unless noted.
 
 ---
 
+## Extreme-value tail fit (r/06_evt.R)
+
+GPD (peaks-over-threshold) on summer daily peaks, complete summers 2019-2025
+only (854 days, 7 summers). Threshold u = 140,507 MW (90th percentile);
+86 exceedance days reduce to 36 independent events after run-declustering
+(r=1) -- the 58% reduction quantifies heat-wave clustering (typical hot spell
+above u spans 2-3 consecutive days). Fitted scale sigma = 4,251 MW (SE 807);
+shape xi = 0.023 (SE 0.182), statistically indistinguishable from zero: an
+exponential-type tail with no evidence of heaviness, and sample too thin to
+distinguish bounded from unbounded.
+
+Return levels (MW, 95% CI):
+- 5-year:  154,829 (148,921 - 160,738)
+- 10-year: 158,025 (149,046 - 167,005)  <- headline; feeds Excel model
+- 20-year: 161,272 (148,316 - 174,227)
+
+Sanity check passed: the observed 7-summer maximum (160,560 MW) sits just
+above the 10-yr point estimate and inside its CI -- where the largest event
+in ~7 years should sit. Threshold sensitivity is strong: 10-yr RL of
+158,780 / 158,025 / 157,505 at q = 0.85 / 0.90 / 0.95 (1.3 GW spread).
+
+Fit caveat, logged not hidden: the empirical exceedance density humps at
+4-7 GW excess while GPD density is monotone-decreasing by construction.
+Attributed to kernel smoothing at N=36 and to declustered run-maxima skewing
+moderate; the far tail tracks, and threshold robustness indicates return
+levels are not sensitive to the mismatch. Standing caveats: 7 summers is
+thin history (CIs honestly wide, especially at 20-yr); quarantined-day peaks
+are lower bounds (Part I), biasing the fitted tail slightly downward if at
+all. Exported to extracts/gpd_params.csv: u, sigma, xi,
+exceed_per_summer = 5.14.
+
 # Part III — Post-Mortems
 
 Kept deliberately: how errors were caught is part of the project's evidence.
