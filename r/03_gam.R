@@ -33,3 +33,8 @@ plot(m, pages = 1, scheme = 1)
 test$pred_gam <- as.numeric(predict(m, newdata = test))
 mape <- function(actual, pred) mean(abs(pred - actual) / actual, na.rm = TRUE) * 100
 mape(test$demand_mw, test$pred_gam)
+
+# Export test-year predictions for downstream scripts
+dir.create("extracts", showWarnings = FALSE)
+test |> select(ts_local, demand_mw, forecast_mw, pred_gam) |>
+  write_csv("extracts/gam_test_2023.csv")
