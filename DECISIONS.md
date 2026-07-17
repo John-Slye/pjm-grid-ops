@@ -137,10 +137,47 @@ ends, that self-heals to true once the current date passes September 30
 model training, backtesting, and EVT (extreme-value) fitting until the
 season completes.
 
+## Modeling goalposts (2023 test year)
+
+Established 2026-07-17 from `r/02_baseline.R`, evaluated on all 2023 hours with
+valid demand and a lag-168 value available.
+
+- Seasonal naive (demand = same hour, 7 days prior): **MAPE 7.24%**
+- PJM day-ahead forecast (DF), same hours:            **MAPE 3.45%**
+
+Every model we fit must beat 7.24% to justify existing. The 3.8-point gap
+between the two numbers represents the value of information (weather, calendar,
+operational knowledge) over pure repetition — closing that gap, and mapping
+where it can't be closed, is the modeling chapter's objective. PJM's DF is the
+incumbent benchmark throughout; we do not expect to beat it overall, and any
+regime where we reach parity is a finding.
 
 
+## GAM v1 (r/03_gam.R) — fitted 2026-07-17
 
+Model: demand ~ s(temp, k=20) + s(hour, cc, k=24) + s(doy, cc, k=30) + dow
+       + ti(temp, hour, bs=(tp, cc)); mgcv::bam, discrete=TRUE;
+       train 2019-2022 (n=34,988), test 2023 (n=8,735).
 
+Results (2023 test year):
+- Deviance explained: 91.9% (adj R-sq 0.919)
+- MAPE 3.75% vs goalposts: naive 7.24%, PJM DF 3.45%
+- Closes ~92% of the naive-to-incumbent gap; remaining 0.30pt gap understates
+  the true gap because this model uses actual temperatures where PJM's DF used
+  day-ahead weather forecasts (standing caveat, to be stress-tested later).
+- dow effects confirm ISO day numbering: Sat/Sun (dow 6/7) run 6-7 GW below
+  weekdays; midweek slightly above Monday.
+
+Technical notes:
+- ti() marginal bases set explicitly to (tp, cc): default cr marginals conflict
+  with endpoint knot specs, and hour should be cyclic inside the interaction
+  regardless. (Initial fit errored on this; fixed, not worked around.)
+- Known limitation: s(doy) edf 27.4/28 and s(temp) edf 17.1/18.3 press their
+  k ceilings; deviance suggests low practical impact. Remedy if regime analysis
+  implicates seasonal transitions: raise k and refit.
+- All smooth terms and the temp x hour interaction highly significant -- the
+  interaction's significance confirms the heat-load response differs by hour
+  (the AC effect), which is the physical basis of the peak-day project.
 
 
 
