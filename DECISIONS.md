@@ -558,7 +558,37 @@ nested-honest catch rate (34/35), the seven-summer mean shifts down ~$2.5k.
 Headline figure for deliverables: ~$70k per MW-year at current capacity
 prices, $50-79k across rate and summer scenarios. Even the low-band floor is
 ~25x the per-event cost assumption, so the recommendation is insensitive to
-c_event within any plausible range.
+c_event within any plausible range.s
+
+## Tableau dashboard (published 2026-07-22)
+
+Public URL: https://public.tableau.com/app/profile/john.slye/viz/PJMPeak-DayEarlyWarningSeven-SummerBacktestEconomics_17847366384910/PJMPeak-DayEarlyWarningSeven-SummerBacktestEconomics
+
+Four views, reading order = argument order: (1) the hook -- summer 2022 daily
+peaks with the five top-5 days in red ("five afternoons determined the next
+year's capacity charges"); (2) the proof -- seven-summer small-multiples
+backtest at the pooled tau = 0.10 operating point, outcomes colored
+(green caught / orange false alarm / gray quiet), aligned on a common
+Jun-Sep axis via a dummy-year date transform; (3) the payoff -- bootstrap
+EV distribution with p10/p90 reference lines ($69k/$77k, mid capacity
+rate); (4) the risk chapter -- daily-peak histogram with the GPD 10-year
+return level (158 GW) as a reference line.
+
+Honesty conventions carried into presentation:
+- View 2 shows the pooled operating point (35/35 by construction); the
+  nested-honest result (34/35) is stated in the view title rather than
+  hidden, and the marginal day (2022-08-08, p = 11.1%) is discoverable via
+  tooltip. Convention: recommendation displayed, caveat stated, marginal
+  case inspectable.
+- Color semantics kept collision-free across views: red = top-5 days (the
+  problem), green = catches (the solution), orange = false alarms (the
+  cost); gray for everything else.
+- Reference lines built on continuous calculated bins
+  (FLOOR(x/2000)*2000) because Tableau bin fields do not support reference
+  lines -- noted for reproducibility.
+
+Data feeds: extracts/summer_days.csv, backtest_outcomes.csv, ev_bootstrap.csv
+(r/10_dashboard_extracts.R). Fixed 1200x900 layout.
 
 # Part III — Post-Mortems
 

@@ -32,7 +32,7 @@ plot(m, pages = 1, scheme = 1)
 # Score it on 2023
 test$pred_gam <- as.numeric(predict(m, newdata = test))
 mape <- function(actual, pred) mean(abs(pred - actual) / actual, na.rm = TRUE) * 100
-mape(test$demand_mw, test$pred_gam)
+mape(test$demand_mw, test$psred_gam)
 
 # Export test-year predictions for downstream scripts
 dir.create("extracts", showWarnings = FALSE)

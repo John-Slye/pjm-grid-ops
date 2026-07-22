@@ -70,3 +70,4 @@ for (b in c(0, 1000)) {
 # efficiency; rationale in DECISIONS.md.
 final <- score_rule_v2(d, 1000)
 write_csv(final, "extracts/rule_baseline_by_summer.csv")
+s
