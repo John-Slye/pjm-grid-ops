@@ -590,6 +590,34 @@ Honesty conventions carried into presentation:
 Data feeds: extracts/summer_days.csv, backtest_outcomes.csv, ev_bootstrap.csv
 (r/10_dashboard_extracts.R). Fixed 1200x900 layout.
 
+## Excel expected-savings model (excel/peak_savings_model.xlsx)
+
+Five-sheet workbook (ReadMe / Inputs / Calc / Scenarios / Output), built in
+Excel for the web (school license restricts desktop editing -- noted for
+provenance). Every input carries a source in-cell: capacity rates from PJM
+BRA results (269.92 / 329.17 / 333.44 $/MW-day), hit rates from the nested
+backtest (0.914 worst-noise / 0.971 nested / 1.000 pooled), alarms (median
+15, nested), GPD parameters from extracts/gpd_params.csv. Two declared
+assumptions: capture efficiency 0.85 and cost per event $2,000 -- both blue
+editable inputs, the latter swept.
+
+Central result: Net EV $691,634/yr at 10 MW (mid rate, nested hit rate) --
+cross-checks the R bootstrap band (~$69.2k/MW vs p10-p50 $69.0-73.0k).
+Scenario grid spans $465,408 (low rate x worst hit) to $734,498 (high x
+pooled), built with mixed references (B$1, $A2) rather than a Data Table
+(unavailable in web Excel; the explicit grid is auditable cell-by-cell and
+the center cell reproduces Calc's Net EV exactly). Tail block: P(peak >
+165 GW) ~ 0.023/summer (~once per 44 summers) via the GPD exceedance
+formula.
+
+Break-even, measured empirically in the workbook: the conservative corner
+turns negative at Cost_evt ~ $5,103/event (2.5x assumption); the central
+scenario near ~$6,600. Corrects an earlier rough estimate of ~$21k --
+event cost is the model's most sensitive assumption and is documented as
+such on the Output sheet. Recommendation is insensitive to every other
+input within sourced ranges.
+
+
 # Part III — Post-Mortems
 
 Kept deliberately: how errors were caught is part of the project's evidence.
